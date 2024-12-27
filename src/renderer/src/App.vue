@@ -1,7 +1,7 @@
 <script setup>
-import OneImage from './components/OneImage.vue'
+import ImageManage from './page/ImageManage.vue'
 </script>
 
 <template>
-  <OneImage></OneImage>
+  <ImageManage></ImageManage>
 </template>

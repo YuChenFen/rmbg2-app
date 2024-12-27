@@ -21,7 +21,7 @@ function createWindow() {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
     width: 900,
-    height: 670,
+    height: 550,
     show: false,
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
@@ -30,7 +30,6 @@ function createWindow() {
       sandbox: false
     }
   })
-  mainWindow.setTitle('RMBG2.0-app')
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
