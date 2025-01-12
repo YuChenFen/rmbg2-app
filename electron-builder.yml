@@ -52,5 +52,4 @@ publish:
   repo: rmbg2-app
   updaterCacheDirName: electron-rmbg2-app-updater
   releaseType: release
-
   

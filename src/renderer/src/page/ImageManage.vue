@@ -8,18 +8,18 @@
       </div>
       <div style="display: flex; gap: 15px; flex-direction: column">
         <IButtom
-          :disabled="!imgUrl || !isRunning || isProcessing"
+          :disabled="currentImage >= ImageList.length - 1 || !isRunning || isProcessing"
           :loading="isProcessing || !isRunning"
-          @click="start"
+          @click="runNext"
         >
           {{ isRunning ? (isProcessing ? '处理中' : '开始') : '加载模型中' }}
         </IButtom>
         <IButtom :disabled="!rmbgImgUrl" @click="save">保存</IButtom>
       </div>
     </div>
-    <div class="content item">
-      <div class="wh" style="position: relative">
-        <input id="file" type="file" style="display: none" @change="onFileChange" />
+    <div class="content" style="display: flex; flex-direction: column; gap: 5px">
+      <div class="wh item" style="position: relative">
+        <input id="file" type="file" style="display: none" multiple @change="onFileChange" />
         <label
           for="file"
           class="wh"
@@ -46,6 +46,33 @@
           :image2="rmbgImgUrl"
         ></ImageComparison>
       </div>
+      <div class="item image-list-container">
+        <div v-for="(item, index) in ImageList" :key="item" class="image-list-item">
+          <IImage
+            style="height: 100%"
+            :src="item.src"
+            :is-loading="item.isLoading"
+            @click="clickImage(item)"
+          ></IImage>
+          <svg
+            class="delete-icon"
+            viewBox="0 0 1024 1024"
+            version="1.1"
+            xmlns="http://www.w3.org/2000/svg"
+            p-id="10882"
+            width="15"
+            height="15"
+            @click="deleteImage(index)"
+          >
+            <path
+              d="M706.368 560h-384c-26.496 0-48-21.504-48-48s21.504-48 48-48h384c26.496 0 48 21.504 48 48s-21.504 48-48 48z"
+            ></path>
+            <path
+              d="M512 1008c-273.472 0-496-222.528-496-496S238.528 16 512 16s496 222.528 496 496-222.528 496-496 496z m0-896c-220.544 0-400 179.456-400 400s179.456 400 400 400 400-179.456 400-400-179.456-400-400-400z"
+            ></path>
+          </svg>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -55,7 +82,11 @@ import { ref } from 'vue'
 import ImageComparison from './ImageComparison.vue'
 import IButtom from '../components/IButtom.vue'
 import IInputNumber from '../components/IInputNumber.vue'
+import IImage from '../components/IImage.vue'
 import Log from './Log.vue'
+
+const ImageList = ref([])
+let currentImage = ref(-1)
 
 const imgUrl = ref('')
 const rmbgImgUrl = ref('')
@@ -66,13 +97,19 @@ let file = null
 let rmbgImgFile = null
 
 function onFileChange(e) {
-  file = e.target.files[0]
-  if (file) {
-    const reader = new FileReader()
-    reader.onload = function (e) {
-      imgUrl.value = e.target.result
+  for (let i = 0; i < e.target.files.length; i++) {
+    const file = e.target.files[i]
+    if (file) {
+      const reader = new FileReader()
+      reader.onload = function (e) {
+        ImageList.value.push({
+          file: file,
+          src: e.target.result,
+          isLoading: true
+        })
+      }
+      reader.readAsDataURL(file)
     }
-    reader.readAsDataURL(file)
   }
 }
 
@@ -82,28 +119,23 @@ function clearFile() {
   document.getElementById('file').value = ''
 }
 
-function start() {
+async function start(index) {
   isProcessing.value = true
-  const form = new FormData()
-  form.append('image_data', file)
-  fetch('http://localhost:12088/rmbg', {
-    method: 'POST',
-    body: form
-  })
-    .then((res) => {
-      return res.blob()
+  try {
+    const form = new FormData()
+    form.append('image_data', file)
+    let res = await fetch('http://localhost:12088/rmbg', {
+      method: 'POST',
+      body: form
     })
-    .then((blob) => {
-      rmbgImgFile = blob
-      const url = URL.createObjectURL(blob)
-      rmbgImgUrl.value = url
-    })
-    .catch(() => {
-      console.log('处理失败')
-    })
-    .finally(() => {
-      isProcessing.value = false
-    })
+    let blob = await res.blob()
+    ImageList.value[index].rmbgImgFile = blob
+    ImageList.value[index].rmbgImgUrl = URL.createObjectURL(blob)
+    ImageList.value[index].isLoading = false
+  } catch (e) {
+    console.log('处理失败', e)
+  }
+  isProcessing.value = false
 }
 
 async function save() {
@@ -121,11 +153,32 @@ async function save() {
   await writable.write(rmbgImgFile)
   await writable.close()
 }
+
+async function runNext() {
+  if (currentImage.value < ImageList.value.length - 1) {
+    currentImage.value++
+    file = ImageList.value[currentImage.value].file
+    await start(currentImage.value)
+    runNext()
+  }
+}
+
+function clickImage(item) {
+  file = item.file
+  rmbgImgFile = item.rmbgImgFile
+  imgUrl.value = item.src
+  rmbgImgUrl.value = item.rmbgImgUrl
+}
+
+function deleteImage(index) {
+  ImageList.value.splice(index, 1)
+  currentImage.value -= 1
+}
 </script>
 
 <style scoped>
 .image-manage {
-  width: 100%;
+  width: 100vw;
   height: 100%;
   display: flex;
   padding: 10px 20px;
@@ -138,6 +191,7 @@ async function save() {
   }
 
   .manage {
+    flex: 0 0 250px;
     width: 250px;
     height: 100%;
     padding: 10px;
@@ -150,6 +204,7 @@ async function save() {
   .content {
     flex: 1;
     height: 100%;
+    width: calc(100% - 250px);
   }
 }
 
@@ -170,5 +225,48 @@ async function save() {
   align-items: center;
   flex-direction: column;
   gap: 10px;
+}
+
+.image-list-container {
+  height: 80px;
+  padding: 5px 10px;
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+
+  .image-list-item {
+    position: relative;
+    height: 100%;
+    border-radius: 5px;
+    border: #383f53 solid 1px;
+    transition: all 0.2s;
+
+    &:hover {
+      border-color: rgba(149, 157, 165, 0.6);
+      box-shadow: rgba(255, 255, 255, 0.1) 0px 1px 2px 0px;
+    }
+
+    .delete-icon {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      cursor: pointer;
+      z-index: 10;
+      fill: #c01a1a;
+      display: none;
+      cursor: pointer;
+
+      &:hover {
+        fill: #f62121;
+      }
+    }
+
+    &:hover .delete-icon {
+      display: block;
+    }
+  }
 }
 </style>
