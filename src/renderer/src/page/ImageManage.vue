@@ -3,7 +3,7 @@
     <div class="manage item">
       <div style="display: flex; gap: 15px; flex-direction: column">
         <IButtom :disabled="!imgUrl" @click="clearFile">清空文件</IButtom>
-        <IInputNumber v-model:value="imageSize"></IInputNumber>
+        <IInputNumber v-if="isRunning == true" v-model:value="imageSize"></IInputNumber>
         <Log @running="isRunning = true"></Log>
       </div>
       <div style="display: flex; gap: 15px; flex-direction: column">
@@ -44,7 +44,8 @@
           style="position: absolute; top: 0; left: 0"
           :image1="imgUrl"
           :image2="rmbgImgUrl"
-        ></ImageComparison>
+        >
+        </ImageComparison>
       </div>
       <div class="item image-list-container">
         <div v-for="(item, index) in ImageList" :key="item" class="image-list-item">
@@ -78,7 +79,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import ImageComparison from './ImageComparison.vue'
 import IButtom from '../components/IButtom.vue'
 import IInputNumber from '../components/IInputNumber.vue'
@@ -95,6 +96,22 @@ const isRunning = ref(false)
 const isProcessing = ref(false)
 let file = null
 let rmbgImgFile = null
+
+watch(
+  () => imageSize.value,
+  () => {
+    fetch('http://localhost:12088/resize', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        width: imageSize.value,
+        height: imageSize.value
+      })
+    })
+  }
+)
 
 function onFileChange(e) {
   for (let i = 0; i < e.target.files.length; i++) {

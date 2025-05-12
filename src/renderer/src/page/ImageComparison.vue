@@ -66,16 +66,7 @@
 import { ref, useAttrs } from 'vue'
 import IButtom from '../components/IButtom.vue'
 
-defineProps({
-  image1: {
-    type: String,
-    required: true
-  },
-  image2: {
-    type: String,
-    required: true
-  }
-})
+defineProps(['image1', 'image2'])
 
 const attrs = useAttrs()
 const value = ref(50)
